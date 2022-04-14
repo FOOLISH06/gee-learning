@@ -6,8 +6,7 @@ import (
 	"net/http"
 )
 
-// HandlerFunc defines the request handler used by gee,
-// implements the Handler interface
+// HandlerFunc defines the request handler used by gee
 type HandlerFunc func(w http.ResponseWriter, req *http.Request)
 
 // Engine implements the Handler interface,
