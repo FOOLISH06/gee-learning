@@ -17,6 +17,7 @@ type Context struct {
 	// request info
 	Path string
 	Method string
+	Params map[string]string
 	// response info
 	StatusCode int
 }
@@ -55,6 +56,12 @@ func (c *Context) Query(key string) string {
 // PostForm gets request form data by key
 func (c *Context) PostForm(key string) string {
 	return c.Req.FormValue(key)
+}
+
+// Param gets the parsed route param
+func (c *Context) Param(key string) string {
+	value, _ := c.Params[key]
+	return value
 }
 
 // String writes a string with format into response,

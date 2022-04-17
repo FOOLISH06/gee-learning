@@ -7,28 +7,28 @@ import (
 )
 
 func main() {
-	router := gee.New()
+	r := gee.New()
 
-	router.GET("/", func(ctx *gee.Context) {
-		ctx.HTML(http.StatusOK, "<h1>hello world<h1>")
-	})
-	router.GET("/hello", func(c *gee.Context) {
-		c.String(http.StatusOK, "hello %s, you're at %q\n", c.Query("name"), c.Path)
-	})
-	router.GET("/query", func(ctx *gee.Context) {
-		ctx.JSON(http.StatusOK, gee.H{
-			"name": ctx.Query("name"),
-			"age": ctx.Query("age"),
-		})
-	})
-	router.POST("/user", func(ctx *gee.Context) {
-		ctx.JSON(http.StatusOK, gee.H{
-			"name": ctx.PostForm("name"),
-			"age": ctx.PostForm("age"),
-		})
+	r.GET("/", func(c *gee.Context) {
+		c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
 	})
 
-	err := router.Run(":8080")
+	r.GET("/hello", func(c *gee.Context) {
+		// expect /hello?name=wxy
+		c.String(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
+	})
+
+	r.GET("/hello/:name", func(c *gee.Context) {
+		// expect /hello/wxy
+		c.String(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
+	})
+
+	r.GET("/assets/*filepath", func(c *gee.Context) {
+		// expect /assets/www/root/hello.html
+		c.JSON(http.StatusOK, gee.H{"filepath": c.Param("filepath")})
+	})
+
+	err := r.Run(":8080")
 	if err != nil {
 		log.Println("engine run failed, error: ", err.Error())
 	}

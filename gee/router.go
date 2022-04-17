@@ -1,38 +1,110 @@
 package gee
 
 import (
-	"log"
 	"net/http"
+	"strings"
 )
 
 // router is a struct contains handler functions and handle them
 // router and its methods are not public. They are only invoked by Engine.
 // key of handlers is combination of request method and request path, like "GET-/hello"
 type router struct {
+	roots    map[string]*node
 	handlers map[string]HandlerFunc
 }
 
+// roots key eg, roots['GET'] roots['POST']
+// handlers key eg, handlers['GET-/p/:lang/doc'], handlers['POST-/p/book']
+
 // newRouter returns a new router for Engine
 func newRouter() *router {
-	return &router{handlers: make(map[string]HandlerFunc)}
+	return &router{
+		roots:    make(map[string]*node),
+		handlers: make(map[string]HandlerFunc),
+	}
 }
 
 // addRoute adds handler function into router,
 // uses request method and path as key
+// update: add trie roots
 func (r *router) addRoute(method string, pattern string, handler HandlerFunc) {
+	parts := parsePattern(pattern)
+
 	key := method + "-" + pattern
+	_, ok := r.roots[method]
+	if !ok {
+		r.roots[method] = &node{}
+	}
+	r.roots[method].insert(pattern, parts, 0)
 	r.handlers[key] = handler
 }
 
 // handle is the real method that calls handler functions.
 // Engine.ServeHTTP creates a Context with http.ResponseWriter and http.Request,
 // and then calls router.handle to handle the request
-func (r *router) handle(ctx *Context) {
-	key := ctx.Method + "-" + ctx.Path
-	if handler, ok := r.handlers[key]; ok {
-		handler(ctx)
+// update: add params
+func (r *router) handle(c *Context) {
+	n, params := r.getRoute(c.Method, c.Path)
+	if n != nil {
+		c.Params = params
+		key := c.Method + "-" + n.pattern
+		r.handlers[key](c)
 	} else {
-		ctx.String(http.StatusNotFound, "404 NOT FOUND: %s\n", ctx.Path)
-		log.Printf("handler %q not found\n", key)
+		c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
 	}
+}
+
+
+// Only one * is allowed
+func parsePattern(pattern string) []string {
+	vs := strings.Split(pattern, "/")
+
+	parts := make([]string, 0)
+	for _, item := range vs {
+		if item != "" {
+			parts = append(parts, item)
+			if item[0] == '*' {
+				break
+			}
+		}
+	}
+	return parts
+}
+
+func (r *router) getRoute(method string, path string) (*node, map[string]string) {
+	searchParts := parsePattern(path)
+	params := make(map[string]string)
+	root, ok := r.roots[method]
+
+	if !ok {
+		return nil, nil
+	}
+
+	n := root.search(searchParts, 0)
+
+	if n != nil {
+		parts := parsePattern(n.pattern)
+		for index, part := range parts {
+			if part[0] == ':' {
+				params[part[1:]] = searchParts[index]
+			}
+			if part[0] == '*' && len(part) > 1 {
+				params[part[1:]] = strings.Join(searchParts[index:], "/")
+				break
+			}
+		}
+		return n, params
+	}
+
+	return nil, nil
+}
+
+func (r *router) getRoutes(method string) []*node {
+	root, ok := r.roots[method]
+	if !ok {
+		return nil
+	}
+	nodes := make([]*node, 0)
+	root.travel(&nodes)
+	return nodes
 }
