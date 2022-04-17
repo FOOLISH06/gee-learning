@@ -1,40 +1,36 @@
 package gee
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 )
 
 // HandlerFunc defines the request handler used by gee
-type HandlerFunc func(w http.ResponseWriter, req *http.Request)
+type HandlerFunc func(ctx *Context)
 
-// Engine implements the Handler interface,
-// use map to store handler functions,
-// key is combination of request method and request path, like "GET-/hello"
+// Engine implements the Handler interface.
+// it uses router to store handlers.
 type Engine struct {
-	router map[string]HandlerFunc
+	router *router
 }
 
 // New is the constructor of gee.Engine
 func New() *Engine {
-	engine := &Engine{router: make(map[string]HandlerFunc)}
+	engine := &Engine{router: newRouter()}
 	return engine
 }
 
-// addRoute adds handler function into engine.router,
+// addRoute adds handler function into engine.router.handlers,
 // invoked by methods like GET(), POST()
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
-	key := method + "-" + pattern
-	engine.router[key] = handler
+	engine.router.addRoute(method, pattern, handler)
 }
 
-// GET defines the method to add GET request
+// GET defines the method to add GET request handler
 func (engine *Engine) GET(pattern string, handler HandlerFunc) {
 	engine.addRoute("GET", pattern, handler)
 }
 
-// POST defines the method to add POST request
+// POST defines the method to add POST request handler
 func (engine *Engine) POST(pattern string, handler HandlerFunc) {
 	engine.addRoute("POST", pattern, handler)
 }
@@ -46,15 +42,6 @@ func (engine *Engine) Run(addr string) error {
 
 // ServeHTTP defines how engine route requests
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	key := req.Method + "-" + req.URL.Path
-	if handler, ok := engine.router[key]; ok {
-		handler(w, req)
-	} else {
-		w.WriteHeader(404)
-		_, err := fmt.Fprintf(w, "404 NOT FOUNF: %s\n", req.URL)
-		if err != nil {
-			log.Println("write to ResponseWriter failed when 404, error: ", err)
-			return
-		}
-	}
+	ctx := newContext(w, req)
+	engine.router.handle(ctx)
 }

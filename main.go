@@ -1,24 +1,34 @@
 package main
 
 import (
-	"fmt"
 	"gee"
 	"log"
 	"net/http"
 )
 
 func main() {
-	router := gee.New()
-	router.GET("/hello", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprintf(w, "requset URL path: %q", req.URL.Path)
-	})
-	router.GET("/headers", func(w http.ResponseWriter, req *http.Request) {
-		for k, v := range req.Header {
-			fmt.Fprintf(w, "Header[%q] = %q\n", k, v)
-		}
+	r := gee.New()
+
+	r.GET("/", func(c *gee.Context) {
+		c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
 	})
 
-	err := router.Run(":8080")
+	r.GET("/hello", func(c *gee.Context) {
+		// expect /hello?name=wxy
+		c.String(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
+	})
+
+	r.GET("/hello/:name", func(c *gee.Context) {
+		// expect /hello/wxy
+		c.String(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
+	})
+
+	r.GET("/assets/*filepath", func(c *gee.Context) {
+		// expect /assets/www/root/hello.html
+		c.JSON(http.StatusOK, gee.H{"filepath": c.Param("filepath")})
+	})
+
+	err := r.Run(":8080")
 	if err != nil {
 		log.Println("engine run failed, error: ", err.Error())
 	}
