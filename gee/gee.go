@@ -3,6 +3,7 @@ package gee
 import (
 	"log"
 	"net/http"
+	"strings"
 )
 
 // HandlerFunc defines the request handler used by gee
@@ -14,7 +15,7 @@ type HandlerFunc func(ctx *Context)
 type (
 	RouterGroup struct {
 		prefix string
-		middleware []HandlerFunc // support middleware
+		middlewares []HandlerFunc // support middleware
 		engine *Engine			 // all groups share one engine instance
 	}
 
@@ -46,6 +47,10 @@ func (group *RouterGroup) Group(prefix string) *RouterGroup{
 	return newGroup
 }
 
+func (group *RouterGroup) Use(middlewares ...HandlerFunc) {
+	group.middlewares = append(group.middlewares, middlewares...)
+}
+
 // addRoute adds handler function into Engine.router.handlers,
 // invoked by methods like GET(), POST()
 func (group *RouterGroup) addRoute(method string, suffix string, handler HandlerFunc) {
@@ -71,6 +76,16 @@ func (engine *Engine) Run(addr string) error {
 
 // ServeHTTP defines how engine route requests
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var middlewares []HandlerFunc
+	for _, group := range engine.groups {
+		// Engine's prefix is ""(default string), and every string has this prefix,
+		// so engine's middleware(has no other groups) is global
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
+
 	ctx := newContext(w, req)
+	ctx.handlers = middlewares
 	engine.router.handle(ctx)
 }

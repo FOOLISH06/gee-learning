@@ -42,16 +42,17 @@ func (r *router) addRoute(method string, pattern string, handler HandlerFunc) {
 // handle is the real method that calls handler functions.
 // Engine.ServeHTTP creates a Context with http.ResponseWriter and http.Request,
 // and then calls router.handle to handle the request
-// update: add params
+// update: add params, middlewares
 func (r *router) handle(c *Context) {
 	n, params := r.getRoute(c.Method, c.Path)
 	if n != nil {
 		c.Params = params
 		key := c.Method + "-" + n.pattern
-		r.handlers[key](c)
+		c.handlers = append(c.handlers, r.handlers[key])
 	} else {
 		c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
 	}
+	c.Next()
 }
 
 

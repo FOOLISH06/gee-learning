@@ -20,6 +20,9 @@ type Context struct {
 	Params map[string]string
 	// response info
 	StatusCode int
+	// middleware
+	handlers []HandlerFunc
+	index int	// the current middleware
 }
 
 // H is an alias, used to  write json data to response
@@ -32,7 +35,21 @@ func newContext(writer http.ResponseWriter, req *http.Request) *Context {
 		Req: req,
 		Path: req.URL.Path,
 		Method: req.Method,
+		index: -1,
 	}
+}
+
+func (c *Context) Next() {
+	c.index++
+	count := len(c.handlers)
+	for ; c.index < count; c.index++ {
+		c.handlers[c.index](c)
+	}
+}
+
+func (c *Context) Fail(code int, err string) {
+	c.index = len(c.handlers)
+	c.JSON(code, H{"message": err})
 }
 
 // Status writes status code into header,
