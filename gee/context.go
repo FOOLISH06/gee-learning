@@ -11,6 +11,7 @@ import (
 // created by Engine and passed to handler function when ServeHTTP().
 // Context is created when a request is coming and dropped when response is sent
 type Context struct {
+	engine *Engine	// to get the HTML template in Engine
 	// origin objects
 	Writer http.ResponseWriter
 	Req *http.Request
@@ -114,12 +115,11 @@ func (c *Context) Data(code int, data []byte) {
 	}
 }
 
-// HTML writes html statement into response
-func (c *Context) HTML(code int, html string) {
-	c.SetHeader("content-type", "text/html")
+// HTML renders html template
+func (c *Context) HTML(code int, name string, data interface{}) {
+	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
-	_, err := c.Writer.Write([]byte(html))
-	if err != nil {
-		log.Printf("HTML() response data failed, err: %q\n", err.Error())
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(500, err.Error())
 	}
 }
